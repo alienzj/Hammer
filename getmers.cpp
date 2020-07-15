@@ -9,6 +9,7 @@
 #include<list>
 #include<queue>
 #include<cstdarg>
+#include<cstring>
 #include<algorithm>
 
 using namespace std;
