@@ -1,22 +1,21 @@
-#include<cassert>
-#include<cmath>
-#include<string>
-#include<iostream>
-#include<sstream>
-#include<fstream>
-#include<cstdlib>
-#include<vector>
-#include<map>
-#include<list>
-#include<queue>
-#include<cstdarg>
-#include<algorithm>
+#include <algorithm>
+#include <cassert>
+#include <cmath>
+#include <cstdarg>
+#include <cstdlib>
+#include <fstream>
+#include <iostream>
+#include <list>
+#include <map>
+#include <queue>
+#include <sstream>
+#include <string>
+#include <vector>
 
 using namespace std;
 ostringstream oMsg;
 string sbuf;
 #include "defs.h"
-
 
 double errorRate = 0.01;
 double ambigConst = 1;
@@ -25,311 +24,371 @@ string ufFilename;
 double threshold;
 int savelimit;
 
-class Read {
-public:
-	string id;
-	string seq;
-	int count;
-	float freq;
-	bool operator<(Read x) const {
-		return x.seq < seq;
-	}
-	bool operator==(string x) const {
-		return x == this->seq;
-	}
+class Read
+{
+  public:
+    string id;
+    string seq;
+    int count;
+    float freq;
+    bool operator<(Read x) const { return x.seq < seq; }
+    bool operator==(string x) const { return x == this->seq; }
 };
 
 /*bool findPseudoKmers (string x, string y, string & new1, string & new2) {
-	assert(x.length() == y.length());
-	int diff = 0;
-	char x1, x2, y1, y2;
-	int pos1, pos2;
-	for (int i = 0; i < x.length(); i++) {
-		if (x[i] == y[i]) continue;
-		diff++;
-		if (diff == 1) {
-			pos1 = i;
-			x1 = x[i];
-			y1 = y[i];
-		} else if (diff == 2) {
-			pos2 = i;
-			x2 = x[i];
-			y2 = y[i];
-		} else {
-			return false;
-		}
-	}
-	if (diff == 2) {
-		new1 = x;
-		new1[pos1] = y1;
-		new2 = y;
-		new2[pos2] = x2;
-		return true;
-	}
-	return false;
+        assert(x.length() == y.length());
+        int diff = 0;
+        char x1, x2, y1, y2;
+        int pos1, pos2;
+        for (int i = 0; i < x.length(); i++) {
+                if (x[i] == y[i]) continue;
+                diff++;
+                if (diff == 1) {
+                        pos1 = i;
+                        x1 = x[i];
+                        y1 = y[i];
+                } else if (diff == 2) {
+                        pos2 = i;
+                        x2 = x[i];
+                        y2 = y[i];
+                } else {
+                        return false;
+                }
+        }
+        if (diff == 2) {
+                new1 = x;
+                new1[pos1] = y1;
+                new2 = y;
+                new2[pos2] = x2;
+                return true;
+        }
+        return false;
 }
 */
 
-double calcMultCoef(vector<int> & distances, vector<Read> & kmers) {
-	int kmersize = kmers[0].seq.size();
-	double prob = 0;
-	double theta;
-	//cout << "calcMultCoef.  distances = " << distances << "\t\t\t"; for (int i = 0; i < kmers.size(); i++) cout << kmers[i].mult << "\t";
-	//cout << "\nadding:\t";
-	for (size_t i = 0; i < kmers.size(); i++) {
-		theta = kmers[i].count * -((kmersize - distances[i]) * log(1 - errorRate) + distances[i] * log(errorRate));
-		//cout << theta << "\t";
-		prob = prob + theta;
-	}
-	//cout << endl;
+double calcMultCoef(vector<int> &distances, vector<Read> &kmers)
+{
+    int kmersize = kmers[0].seq.size();
+    double prob = 0;
+    double theta;
+    // cout << "calcMultCoef.  distances = " << distances << "\t\t\t"; for (int
+    // i = 0; i < kmers.size(); i++) cout << kmers[i].mult << "\t"; cout <<
+    // "\nadding:\t";
+    for (size_t i = 0; i < kmers.size(); i++)
+    {
+        theta =
+            kmers[i].count * -((kmersize - distances[i]) * log(1 - errorRate) +
+                               distances[i] * log(errorRate));
+        // cout << theta << "\t";
+        prob = prob + theta;
+    }
+    // cout << endl;
 
-	return prob;
+    return prob;
 }
 
-string find_consensus(vector<Read> & block) {
-	string c;
-	
-	for (int i = 0; i < block[0].seq.length(); i++) {
-		int scores[4] = {0,0,0,0};
-		for (int j = 0; j < block.size(); j++) {
-			scores[nt2num(block[j].seq.at(i))]++;
-		}
-		c.push_back(num2nt(argmax(scores, 4)));
-	}
-	return c;
+string find_consensus(vector<Read> &block)
+{
+    string c;
+
+    for (int i = 0; i < block[0].seq.length(); i++)
+    {
+        int scores[4] = {0, 0, 0, 0};
+        for (int j = 0; j < block.size(); j++)
+        {
+            scores[nt2num(block[j].seq.at(i))]++;
+        }
+        c.push_back(num2nt(argmax(scores, 4)));
+    }
+    return c;
 }
 
-		/*
-		for (int i = 0; i < origBlockSize; i++) {
-			for (int j = 0; j < origBlockSize; j++) {
-				string new1, new2;
-				if (findPseudoKmers(block[i].seq, block[j].seq, new1, new2)) {
-					Read cur;
-					new1 = rcnorm(new1);
-					new2 = rcnorm(new2);
-					vector<Read>::iterator it1 = find(block.begin(), block.end(), new1);
-					vector<Read>::iterator it2 = find(block.begin(), block.end(), new2);
-					if (it1 == block.end()) {
-						cur.seq = new1;
-						cur.count = 0;
-						block.push_back(cur);
-					} 
-					if (it2 == block.end()) {
-						cur.seq = new2;
-						cur.count = 0;
-						block.push_back(cur);
-					} 
-				}
-			}
-		}
-		*/
+/*
+for (int i = 0; i < origBlockSize; i++) {
+        for (int j = 0; j < origBlockSize; j++) {
+                string new1, new2;
+                if (findPseudoKmers(block[i].seq, block[j].seq, new1, new2)) {
+                        Read cur;
+                        new1 = rcnorm(new1);
+                        new2 = rcnorm(new2);
+                        vector<Read>::iterator it1 = find(block.begin(),
+block.end(), new1); vector<Read>::iterator it2 = find(block.begin(),
+block.end(), new2); if (it1 == block.end()) { cur.seq = new1; cur.count = 0;
+                                block.push_back(cur);
+                        }
+                        if (it2 == block.end()) {
+                                cur.seq = new2;
+                                cur.count = 0;
+                                block.push_back(cur);
+                        }
+                }
+        }
+}
+*/
 
-void process_block(vector<Read> & block, string blockNum, double threshold, ofstream & outf) {
-	int origBlockSize = block.size();
-	if (block.size() == 0) return;
-	vector<double> multiCoef(block.size() + 1,1000000);//add one for the consensus
-	vector<int> distance(block.size() + 1 , 0);  //add one for the consensus
-	vector< vector<int> > distances(block.size() + 1 , distance); //add one for the consensus
-	//sort (block.begin(), block.end());
-	string bestkmer;
-	bool change = false;
-	string reason = "noreason";
-	bool bigboy = false;
+void process_block(vector<Read> &block, string blockNum, double threshold,
+                   ofstream &outf)
+{
+    int origBlockSize = block.size();
+    if (block.size() == 0)
+        return;
+    vector<double> multiCoef(block.size() + 1,
+                             1000000);         // add one for the consensus
+    vector<int> distance(block.size() + 1, 0); // add one for the consensus
+    vector<vector<int>> distances(block.size() + 1,
+                                  distance); // add one for the consensus
+    // sort (block.begin(), block.end());
+    string bestkmer;
+    bool change = false;
+    string reason = "noreason";
+    bool bigboy = false;
 
-	if (block.size() > 1) {
+    if (block.size() > 1)
+    {
 
-		//This is a shortcut that deviates from the definition of the algorithm but speeds everything up
-		//if one node has a count more than double of another one
-		int max1 = 0;
-		int max2 = 1;
-		if (block[max1].count < block[max2].count) swap(max1, max2);
-		for (int i = 2; i < block.size(); i++) {
-			if (block[i].count > block[max1].count) {
-				max2 = max1;
-				max1 = i;
-			} else if (block[i].count > block[max2].count) {
-				max2 = i;
-			}
-		}
+        // This is a shortcut that deviates from the definition of the algorithm
+        // but speeds everything up if one node has a count more than double of
+        // another one
+        int max1 = 0;
+        int max2 = 1;
+        if (block[max1].count < block[max2].count)
+            swap(max1, max2);
+        for (int i = 2; i < block.size(); i++)
+        {
+            if (block[i].count > block[max1].count)
+            {
+                max2 = max1;
+                max1 = i;
+            }
+            else if (block[i].count > block[max2].count)
+            {
+                max2 = i;
+            }
+        }
 
-		if (block[max1].count >= 2* block[max2].count && block[max1].count >= 20) {
-			change = true;
-			bestkmer = block[max1].seq;
-			bigboy = true;
-		} else {
-			//Add a consensus sequence
-			Read consensus;
-			consensus.seq = find_consensus(block);
-			consensus.count = 0;
-			bool found = false;
-			for (int i = 0; i < block.size(); i++) {
-				if (block[i].seq == consensus.seq) {
-					found = true;
-					break;
-				}
-			}
-			if (!found) block.push_back(consensus);
-			
+        if (block[max1].count >= 2 * block[max2].count &&
+            block[max1].count >= 20)
+        {
+            change = true;
+            bestkmer = block[max1].seq;
+            bigboy = true;
+        }
+        else
+        {
+            // Add a consensus sequence
+            Read consensus;
+            consensus.seq = find_consensus(block);
+            consensus.count = 0;
+            bool found = false;
+            for (int i = 0; i < block.size(); i++)
+            {
+                if (block[i].seq == consensus.seq)
+                {
+                    found = true;
+                    break;
+                }
+            }
+            if (!found)
+                block.push_back(consensus);
 
-			//Calculate distance matrix
-			for (int i = 0; i < block.size(); i++) {
-				distances[i][i] = 0;
-				for (int j = i + 1; j < block.size(); j++) {
-					distances[i][j] = hamdist(block[i].seq, block[j].seq, ANY_STRAND);
-					distances[j][i] = distances[i][j];
-				}
-			}
+            // Calculate distance matrix
+            for (int i = 0; i < block.size(); i++)
+            {
+                distances[i][i] = 0;
+                for (int j = i + 1; j < block.size(); j++)
+                {
+                    distances[i][j] =
+                        hamdist(block[i].seq, block[j].seq, ANY_STRAND);
+                    distances[j][i] = distances[i][j];
+                }
+            }
 
-			//Calculate multinmial coefficient
-			for (int i = 0; i < block.size(); i++) {
-				multiCoef[i] = calcMultCoef(distances[i], block);
-			}
+            // Calculate multinmial coefficient
+            for (int i = 0; i < block.size(); i++)
+            {
+                multiCoef[i] = calcMultCoef(distances[i], block);
+            }
 
-			//Pick a center node
-			double low1 = 1000000000;
-			int ind1 = -1;
-			int ind2 = -1;
-			double low2 = 1000000000;
-			for (int i = 0; i < block.size(); i++) {
-				if (multiCoef[i] < low1) {
-					low2 = low1;
-					ind2 = ind1;
-					low1 = multiCoef[i];
-					ind1 = i;
-				} else if (multiCoef[i] < low2) {
-					low2 = multiCoef[i];
-					ind2 = i;
-				}
-			}
-			if (low1 < low2 - ambigConst) {
-				change = true; 
-				if (ind1 == origBlockSize)  reason = "pseudo";  //consensus was picked
-			}
-			bestkmer = block[ind1].seq;
-		}
-	} 
+            // Pick a center node
+            double low1 = 1000000000;
+            int ind1 = -1;
+            int ind2 = -1;
+            double low2 = 1000000000;
+            for (int i = 0; i < block.size(); i++)
+            {
+                if (multiCoef[i] < low1)
+                {
+                    low2 = low1;
+                    ind2 = ind1;
+                    low1 = multiCoef[i];
+                    ind1 = i;
+                }
+                else if (multiCoef[i] < low2)
+                {
+                    low2 = multiCoef[i];
+                    ind2 = i;
+                }
+            }
+            if (low1 < low2 - ambigConst)
+            {
+                change = true;
+                if (ind1 == origBlockSize)
+                    reason = "pseudo"; // consensus was picked
+            }
+            bestkmer = block[ind1].seq;
+        }
+    }
 
-	for (int i = 0; i < origBlockSize; i++) {
-		string replacement = bestkmer;
-		if (block.size() == 1) { //singleton
-			if (block[i].freq >= threshold) { //keep reads
-				replacement = block[i].seq;
-				reason =  "goodSingleton";
-				change = false;
-			} else {
-				replacement = "removed";
-				reason =  "badSingleton";
-				change = true;
-			}
-		} else { //multiton
-			if (change) {
-				if (reason != "pseudo") {
-					if (bestkmer == block[i].seq) {
-						reason = "center";
-					} else if (block[i].freq >= savelimit) { //save from destruction cause its too frequent
-						replacement = block[i].seq;
-						reason = "saved";
-					} else {
-						reason = "change";
-					} 
-				}
-			} else { //ambig, treat like singleton
-				if (block[i].freq >= threshold) { //keep reads
-					replacement =  block[i].seq;
-					reason =  "goodAmbig";
-				} else {
-					replacement = "removed";
-					reason =  "badAmbig";
-				}
-			}
-		}
+    for (int i = 0; i < origBlockSize; i++)
+    {
+        string replacement = bestkmer;
+        if (block.size() == 1)
+        { // singleton
+            if (block[i].freq >= threshold)
+            { // keep reads
+                replacement = block[i].seq;
+                reason = "goodSingleton";
+                change = false;
+            }
+            else
+            {
+                replacement = "removed";
+                reason = "badSingleton";
+                change = true;
+            }
+        }
+        else
+        { // multiton
+            if (change)
+            {
+                if (reason != "pseudo")
+                {
+                    if (bestkmer == block[i].seq)
+                    {
+                        reason = "center";
+                    }
+                    else if (block[i].freq >= savelimit)
+                    { // save from destruction
+                      // cause its too frequent
+                        replacement = block[i].seq;
+                        reason = "saved";
+                    }
+                    else
+                    {
+                        reason = "change";
+                    }
+                }
+            }
+            else
+            { // ambig, treat like singleton
+                if (block[i].freq >= threshold)
+                { // keep reads
+                    replacement = block[i].seq;
+                    reason = "goodAmbig";
+                }
+                else
+                {
+                    replacement = "removed";
+                    reason = "badAmbig";
+                }
+            }
+        }
 
-		outf << blockNum << "\t" << block[i].seq << "\t" << replacement << "\t";
-		outf << block[i].count << "\t" << block[i].freq << "\t" << block.size();
-		outf <<  "\t" << multiCoef[i] << "\t" << reason << "\t";
-		outf << distances[i][0]; 
-		if( !bigboy) {  
-			for (int j = 1; j < distances[i].size(); j++) outf << "_" << distances[i][j];
-		}
-		outf << endl;
-	}
+        outf << blockNum << "\t" << block[i].seq << "\t" << replacement << "\t";
+        outf << block[i].count << "\t" << block[i].freq << "\t" << block.size();
+        outf << "\t" << multiCoef[i] << "\t" << reason << "\t";
+        outf << distances[i][0];
+        if (!bigboy)
+        {
+            for (int j = 1; j < distances[i].size(); j++)
+                outf << "_" << distances[i][j];
+        }
+        outf << endl;
+    }
 
-
-	outf << endl;
-	return;
+    outf << endl;
+    return;
 }
 
-void * onethread(void * params) {
-	int thread = *((int *) params);
+void *onethread(void *params)
+{
+    int thread = *((int *)params);
 
-	ifstream inf;
-	open_file(inf, ufFilename);
-	ofstream outf;
-	open_file(outf, "reads.uf.corr." + make_string(thread));
+    ifstream inf;
+    open_file(inf, ufFilename);
+    ofstream outf;
+    open_file(outf, "reads.uf.corr." + make_string(thread));
 
-	vector<Read> block;
-	int counter=0;
-	vector<string> row;
-	string curBlockNum;
-	string lastBlockNum = "GO LAKERS!";
-	while (get_row_whitespace(inf, row)) {
-		if (row.size() < 1 || row[0] != "ITEM") {
-			//outf << row << endl;
-			continue;
-		}
-		if (atoi(row[1].c_str()) % nthreads != thread) continue;
-		if (++counter % 1000000 == 0) cerr << "Processed " << add_commas(counter) << ", ";
-		Read cur;
-		curBlockNum = row[1];
-		cur.id = row[2];
-		cur.seq = row[3];
-		cur.count = atoi(row[4].c_str());
-		cur.freq = atof(row[5].c_str());
-		if (lastBlockNum == curBlockNum) { //add to current reads
-			block.push_back(cur);
-		} else {
-			process_block(block,lastBlockNum, threshold, outf);
-			block.clear();
-			block.push_back(cur);
-		}
-		lastBlockNum = curBlockNum;
-	}
-	process_block(block,curBlockNum, threshold, outf);
-	cerr << "Finished\n";
-	inf.close();
-	outf.close();
-	pthread_exit(NULL);
-
-
+    vector<Read> block;
+    int counter = 0;
+    vector<string> row;
+    string curBlockNum;
+    string lastBlockNum = "GO LAKERS!";
+    while (get_row_whitespace(inf, row))
+    {
+        if (row.size() < 1 || row[0] != "ITEM")
+        {
+            // outf << row << endl;
+            continue;
+        }
+        if (atoi(row[1].c_str()) % nthreads != thread)
+            continue;
+        if (++counter % 1000000 == 0)
+            cerr << "Processed " << add_commas(counter) << ", ";
+        Read cur;
+        curBlockNum = row[1];
+        cur.id = row[2];
+        cur.seq = row[3];
+        cur.count = atoi(row[4].c_str());
+        cur.freq = atof(row[5].c_str());
+        if (lastBlockNum == curBlockNum)
+        { // add to current reads
+            block.push_back(cur);
+        }
+        else
+        {
+            process_block(block, lastBlockNum, threshold, outf);
+            block.clear();
+            block.push_back(cur);
+        }
+        lastBlockNum = curBlockNum;
+    }
+    process_block(block, curBlockNum, threshold, outf);
+    cerr << "Finished\n";
+    inf.close();
+    outf.close();
+    pthread_exit(NULL);
 }
-int main(int argc, char * argv[]) {
-	assert(argc == 5);
+int main(int argc, char *argv[])
+{
+    assert(argc == 5);
 
-	ufFilename = argv[1];
-	threshold = atof(argv[2]);
-	nthreads = atoi(argv[3]);
-	savelimit = atoi(argv[4]);
-	/*
-	   if (threshold == -1) {
-	   cerr << "First phase...\n";
-	   threshold = get_threshold(ufFilename);
-	   }
-	 */
-	cerr << "Second phase (threshold = " << threshold << ")...\n";
+    ufFilename = argv[1];
+    threshold = atof(argv[2]);
+    nthreads = atoi(argv[3]);
+    savelimit = atoi(argv[4]);
+    /*
+       if (threshold == -1) {
+       cerr << "First phase...\n";
+       threshold = get_threshold(ufFilename);
+       }
+     */
+    cerr << "Second phase (threshold = " << threshold << ")...\n";
 
+    // start threads
+    pthread_t thread[nthreads];
+    int params[nthreads];
+    for (int i = 0; i < nthreads; i++)
+    {
+        params[i] = i;
+        pthread_create(&thread[i], NULL, onethread, (void *)&params[i]);
+    }
+    for (int i = 0; i < nthreads; i++)
+    {
+        pthread_join(thread[i], NULL);
+    }
 
-	//start threads
-	pthread_t thread[nthreads];
-	int params[nthreads];
-	for (int i = 0; i < nthreads; i++) {
-		params[i] = i;
-		pthread_create(&thread[i], NULL, onethread, (void *) &params[i]);
-	}
-	for (int i = 0; i < nthreads; i++) {
-		pthread_join(thread[i], NULL);
-	}
-
-	return 0;
+    return 0;
 }
 
 /*
@@ -352,8 +411,8 @@ if (bin < 100 * res ) smallbins.at(bin) += 1;
 
 ofstream dump;
 open_file(dump, "singletonCounts.txt");
-dump << bigbins << "\tBIG_BINS" << endl; 
-dump << smallbins << "\tSMALL_BINS" << endl; 
+dump << bigbins << "\tBIG_BINS" << endl;
+dump << smallbins << "\tSMALL_BINS" << endl;
 dump.close();
 
 //find first min big bin
@@ -364,7 +423,8 @@ minBigBin = i;
 break;
 }
 }
-//cout << bigbins << "\tBIG_BINS" << endl; cout << minBigBin << "\tminBigBin" << endl;
+//cout << bigbins << "\tBIG_BINS" << endl; cout << minBigBin << "\tminBigBin" <<
+endl;
 
 if (minBigBin == -1) {
 cerr << "Cannot find minimum in frequency distribution!  Will use 0.\n";
@@ -374,10 +434,9 @@ return 0;
 
 //find first min bin
 int minSmallBin = -1;
-for (int i = max(0, (minBigBin -1 ) * res) + 1; i < min(int(smallbins.size()), res * (minBigBin + 1) ) - 1; i++) {
-if (smallbins[i-1] > smallbins[i] && smallbins[i] < smallbins[i+1]) {
-minSmallBin = i;
-break;
+for (int i = max(0, (minBigBin -1 ) * res) + 1; i < min(int(smallbins.size()),
+res * (minBigBin + 1) ) - 1; i++) { if (smallbins[i-1] > smallbins[i] &&
+smallbins[i] < smallbins[i+1]) { minSmallBin = i; break;
 }
 }
 
@@ -407,45 +466,44 @@ return sum;
 
 
 double get_threshold(string ufFilename) {
-	double retval;
-	ifstream inf;
-	open_file(inf, ufFilename);
+        double retval;
+        ifstream inf;
+        open_file(inf, ufFilename);
 
 
-	vector<double> counts;
-	vector<Read> block;
-	int counter=0;
-	double totCount;
-	vector<string> row;
-	string curBlockNum;
-	string lastBlockNum = "GO LAKERS!";
-	while (get_row_whitespace(inf, row)) {
-		if (++counter % 1000000 == 0) cerr << "Processed " << add_commas(counter) << ", ";
-		if (row.size() < 1 || row[0] != "ITEM") {
-			continue;
-		}
-		Read cur;
-		curBlockNum = row[1];
-		cur.id = row[2];
-		cur.seq = row[3];
-		cur.count = atof(row[4].c_str());
+        vector<double> counts;
+        vector<Read> block;
+        int counter=0;
+        double totCount;
+        vector<string> row;
+        string curBlockNum;
+        string lastBlockNum = "GO LAKERS!";
+        while (get_row_whitespace(inf, row)) {
+                if (++counter % 1000000 == 0) cerr << "Processed " <<
+add_commas(counter) << ", "; if (row.size() < 1 || row[0] != "ITEM") { continue;
+                }
+                Read cur;
+                curBlockNum = row[1];
+                cur.id = row[2];
+                cur.seq = row[3];
+                cur.count = atof(row[4].c_str());
 
-		if (lastBlockNum == curBlockNum) { //add to current reads
-			block.push_back(cur);
-		} else {
-			totCount = get_total_counts(block);
-			if (totCount >= 0) counts.push_back(totCount);
-			block.clear();
-			block.push_back(cur);
-		}
-		lastBlockNum = curBlockNum;
-	}
-	cerr << endl;
-	totCount = get_total_counts(block);
-	if (totCount >= 0) counts.push_back(totCount);
-	retval = get_min(counts);
-	inf.close();
-	return retval;
+                if (lastBlockNum == curBlockNum) { //add to current reads
+                        block.push_back(cur);
+                } else {
+                        totCount = get_total_counts(block);
+                        if (totCount >= 0) counts.push_back(totCount);
+                        block.clear();
+                        block.push_back(cur);
+                }
+                lastBlockNum = curBlockNum;
+        }
+        cerr << endl;
+        totCount = get_total_counts(block);
+        if (totCount >= 0) counts.push_back(totCount);
+        retval = get_min(counts);
+        inf.close();
+        return retval;
 
 }
 
